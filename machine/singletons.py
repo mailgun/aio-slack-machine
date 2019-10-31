@@ -15,6 +15,7 @@ from slack import RTMClient, WebClient
 
 log = logging.getLogger(__name__)
 
+
 class Slack(metaclass=Singleton):
     __slots__ = "_login_data", "_rtm_client", "_web_client"
 
@@ -43,15 +44,15 @@ class Slack(metaclass=Singleton):
             self._login_data = payload["data"]
 
     @property
-    def login_data(self):
+    def login_data(self) -> ReadonlyProxy[dict]:
         return ReadonlyProxy(self._login_data or {})
 
     @property
-    def rtm(self):
+    def rtm(self) -> ReadonlyProxy[RTMClient]:
         return ReadonlyProxy(self._rtm_client)
 
     @property
-    def web(self):
+    def web(self) -> ReadonlyProxy[WebClient]:
         return ReadonlyProxy(self._web_client)
 
     @staticmethod
@@ -84,7 +85,7 @@ class Scheduler(metaclass=Singleton):
 class Storage(metaclass=Singleton):
     def __init__(self):
         _settings, _ = import_settings()
-        _, cls = import_string(_settings['STORAGE_BACKEND'])[0]
+        _, cls = import_string(_settings["STORAGE_BACKEND"])[0]
         self._storage = cls(_settings)
 
     def __getattr__(self, item):
