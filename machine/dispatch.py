@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+import asyncio
 import time
 import re
 import logging
@@ -13,7 +16,7 @@ logger = logging.getLogger(__name__)
 class EventDispatcher:
 
     def __init__(self, plugin_actions, settings=None):
-        self._client = Slack()
+        self._client = Slack.get_instance()
         self._plugin_actions = plugin_actions
         self._pool = ThreadPool()
         alias_regex = ''
@@ -28,30 +31,38 @@ class EventDispatcher:
             re.DOTALL,
         )
 
-    def start(self):
+    async def start(self):
         while True:
             for event in self._client.rtm_read():
                 self._pool.add_task(self.handle_event, event)
-            time.sleep(.1)
+            await asyncio.sleep(.1)
 
-    def handle_event(self, event):
+    async def handle_event(self, event):
         # Gotta catch 'em all!
-        for action in self._plugin_actions['catch_all'].values():
-            action['function'](event)
+        await asyncio.gather(
+            action["function"](event)
+            for action in self._find_listeners("catch_all")
+        )
+
         # Basic dispatch based on event type
         if 'type' in event:
             if event['type'] in self._plugin_actions['process']:
+                handlers = []
                 for action in self._plugin_actions['process'][event['type']].values():
-                    action['function'](event)
+                    handlers.append(action["function"](event))
+
+                await asyncio.gather(*handlers)
+
         # Handle message listeners
         if 'type' in event and event['type'] == 'message':
             respond_to_msg = self._check_bot_mention(event)
             if respond_to_msg:
                 listeners = self._find_listeners('respond_to')
-                self._dispatch_listeners(listeners, respond_to_msg)
+                await self._dispatch_listeners(listeners, respond_to_msg)
             else:
                 listeners = self._find_listeners('listen_to')
-                self._dispatch_listeners(listeners, event)
+                await self._dispatch_listeners(listeners, event)
+
         if 'type' in event and event['type'] == 'pong':
             logger.debug("Server Pong!")
 
@@ -99,10 +110,14 @@ class EventDispatcher:
                 event['text'] = m.groupdict().get('text', None)
         return event
 
-    def _dispatch_listeners(self, listeners, event):
+    async def _dispatch_listeners(self, listeners, event):
+        handlers = []
         for l in listeners:
             matcher = l['regex']
             match = matcher.search(event.get('text', ''))
             if match:
                 message = self._gen_message(event, l['class_name'])
-                l['function'](message, **match.groupdict())
+                handlers.append(l['function'](message, **match.groupdict()))
+
+        if handlers:
+            await asyncio.gather(*handlers)

@@ -1,4 +1,6 @@
-import requests
+# -*- coding: utf-8 -*-
+
+from aiohttp.client import ClientSession
 from machine.plugins.base import MachineBasePlugin
 from machine.plugins.decorators import respond_to
 from machine.plugins.builtin.fun.regexes import url_regex
@@ -8,7 +10,7 @@ class MemePlugin(MachineBasePlugin):
     """Images"""
 
     @respond_to(r'meme (?P<meme>\S+) (?P<top>.+);(?P<bottom>.+)')
-    def meme(self, msg, meme, top, bottom):
+    async def meme(self, msg, meme, top, bottom):
         """meme <meme template> <top text>;<bottom text>: generate a meme"""
         character_replacements = {
             '?': '~q',
@@ -30,7 +32,7 @@ class MemePlugin(MachineBasePlugin):
             msg.say(path)
         else:
             path = '/{}/{}/{}'.format(meme, top.strip(), bottom.strip()).replace(' ', '-')
-            status, meme_info = self._memegen_api_request(path)
+            status, meme_info = await self._memegen_api_request(path)
             if 200 <= status < 400:
                 msg.say(meme_info['direct']['masked'] + query_string)
             elif status == 404:
@@ -40,27 +42,28 @@ class MemePlugin(MachineBasePlugin):
                 msg.say("Ooooops! Something went wrong :cry:")
 
     @respond_to(r'list memes')
-    def list_memes(self, msg):
+    async def list_memes(self, msg):
         """list memes: list all the available meme templates"""
         ephemeral = not msg.is_dm
-        status, templates = self._memegen_api_request('/api/templates/')
+        status, templates = await self._memegen_api_request('/api/templates/')
         if 200 <= status < 400:
             message = "*You can choose from these memes:*\n\n" + "\n".join(
                 ["\t_{}_: '{}'".format(url.rsplit('/', 1)[1], description) for description, url in
                  templates.items()]
             )
-            msg.say_webapi(message, ephemeral=ephemeral)
+            await msg.say_webapi(message, ephemeral=ephemeral)
         else:
-            msg.say_webapi("It seems I cannot find the memes you're looking for :cry:",
+            await msg.say_webapi("It seems I cannot find the memes you're looking for :cry:",
                            ephemeral=ephemeral)
 
-    def _memegen_api_request(self, path):
+    async def _memegen_api_request(self, path):
         url = self._base_url + path.lower()
-        r = requests.get(url)
-        if r.ok:
-            return r.status_code, r.json()
-        else:
-            return r.status_code, None
+        async with ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.reason == "OK":
+                    return resp.status, await resp.json()
+                else:
+                    return resp.status, None
 
     @property
     def _base_url(self):

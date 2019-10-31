@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+from aiohttp.web import Application
 from blinker import signal
 
 
@@ -22,7 +25,7 @@ class MachineBasePlugin:
         self.settings = settings
         self._fq_name = "{}.{}".format(self.__module__, self.__class__.__name__)
 
-    def init(self):
+    def init(self, http_app: Application):
         """Initialize plugin
 
         This method can be implemented by concrete plugin classes. It will be called **once**
@@ -34,8 +37,19 @@ class MachineBasePlugin:
         """
         pass
 
-    @property
-    def users(self):
+    async def ainit(self, http_app: Application):
+        """ Asynchronous initialize plugin
+
+        This method can be implemented by concrete plugin classes. It will be called **once**
+        for each plugin, when that plugin is first loaded. You can refer to settings via
+        ``self.settings``, and access storage through ``self.storage``, but the Slack client has
+        not been initialized yet, so you cannot send or process messages during initialization.
+
+        :return: None
+        """
+        pass
+
+    async def get_users(self):
         """Dictionary of all users in the Slack workspace
 
         :return: a dictionary of all users in the Slack workspace, where the key is the user id and
@@ -44,10 +58,9 @@ class MachineBasePlugin:
 
         .. _User: https://github.com/slackapi/python-slackclient/blob/master/slackclient/user.py
         """
-        return self._client.users
+        return await self._client.get_users()
 
-    @property
-    def channels(self):
+    async def get_channels(self):
         """List of all channels in the Slack workspace
 
         This is a list of all channels in the Slack workspace that the bot is aware of. This
@@ -59,7 +72,7 @@ class MachineBasePlugin:
 
         .. _Channel: https://github.com/slackapi/python-slackclient/blob/master/slackclient/channel.py # NOQA
         """
-        return self._client.channels
+        return await self._client.get_channels()
 
     def retrieve_bot_info(self):
         """Information about the bot user in Slack
@@ -71,7 +84,7 @@ class MachineBasePlugin:
         """
         return self._client.retrieve_bot_info()
 
-    def at(self, user):
+    async def at(self, user):
         """Create a mention of the provided user
 
         Create a mention of the provided user in the form of ``<@[user_id]>``. This method is
@@ -82,9 +95,9 @@ class MachineBasePlugin:
         :param user: user your want to mention
         :return: user mention
         """
-        return self._client.fmt_mention(user)
+        return await self._client.fmt_mention(user)
 
-    def say(self, channel, text, thread_ts=None):
+    async def say(self, channel, text, thread_ts=None):
         """Send a message to a channel
 
         Send a message to a channel using the RTM API. Only `basic Slack formatting`_ allowed.
@@ -99,7 +112,7 @@ class MachineBasePlugin:
         :param thread_ts: optional timestamp of thread, to send a message in that thread
         :return: None
         """
-        self._client.send(channel, text, thread_ts)
+        await self._client.send(channel, text, thread_ts)
 
     def say_scheduled(self, when, channel, text):
         """Schedule a message to a channel
@@ -107,7 +120,6 @@ class MachineBasePlugin:
         This is the scheduled version of
         :py:meth:`~machine.plugins.base.MachineBasePlugin.say`.
         It behaves the same, but will send the message at the scheduled time.
-
 
         :param when: when you want the message to be sent, as :py:class:`datetime.datetime` instance
         :param channel: id or name of channel to send message to. Can be public or private (group)
@@ -117,7 +129,7 @@ class MachineBasePlugin:
         """
         self._client.send_scheduled(when, channel, text)
 
-    def say_webapi(self, channel, text, attachments=None, thread_ts=None, ephemeral_user=None):
+    async def say_webapi(self, channel, text, attachments=None, thread_ts=None, ephemeral_user=None):
         """Send a message to a channel using the WebAPI
 
         Send a message to a channel using the WebAPI. Allows for rich formatting using
@@ -141,7 +153,7 @@ class MachineBasePlugin:
         .. _chat.postMessage: https://api.slack.com/methods/chat.postMessage
         .. _chat.postEphemeral: https://api.slack.com/methods/chat.postEphemeral
         """
-        return self._client.send_webapi(channel, text, attachments, thread_ts, ephemeral_user)
+        return await self._client.send_webapi(channel, text, attachments, thread_ts, ephemeral_user)
 
     def say_webapi_scheduled(self, when, channel, text, attachments, ephemeral_user):
         """Schedule a message to a channel and send it using the WebAPI
@@ -159,7 +171,7 @@ class MachineBasePlugin:
         """
         self._client.send_webapi_scheduled(when, channel, text, attachments, ephemeral_user)
 
-    def react(self, channel, ts, emoji):
+    async def react(self, channel, ts, emoji):
         """React to a message in a channel
 
         Add a reaction to a message in a channel. What message to react to, is determined by the
@@ -175,7 +187,7 @@ class MachineBasePlugin:
         """
         return self._client.react(channel, ts, emoji)
 
-    def send_dm(self, user, text):
+    async def send_dm(self, user, text):
         """Send a Direct Message
 
         Send a Direct Message to a user by opening a DM channel and sending a message to it.
@@ -204,7 +216,7 @@ class MachineBasePlugin:
         """
         self._client.send_dm_scheduled(when, user, text)
 
-    def send_dm_webapi(self, user, text, attachments=None):
+    async def send_dm_webapi(self, user, text, attachments=None):
         """Send a Direct Message through the WebAPI
 
         Send a Direct Message to a user by opening a DM channel and sending a message to it via
@@ -269,24 +281,30 @@ class Message:
         self._fq_plugin_name = plugin_class_name
 
     @property
-    def sender(self):
+    def user_id(self):
+        return self._msg_event["user"]
+
+    @property
+    def channel_id(self):
+        return self._msg_event["channel"]
+
+    async def get_sender(self):
         """The sender of the message
 
         :return: the User the message was sent by
         """
-        return self._client.users.find(self._msg_event['user'])
+        return (await self._client.get_users()).find(self._msg_event['user'])
 
-    @property
-    def channel(self):
+    async def get_channel(self):
         """The channel the message was sent to
 
         :return: the Channel the message was sent to
         """
-        return self._client.channels.find(self._msg_event['channel'])
+        return (await self._client.get_channels()).find(self._msg_event['channel'])
 
     @property
     def is_dm(self):
-        chan = self._msg_event['channel']
+        chan = self.channel_id
         return not (chan.startswith('C') or chan.startswith('G'))
 
     @property
@@ -297,8 +315,7 @@ class Message:
         """
         return self._msg_event['text']
 
-    @property
-    def at_sender(self):
+    async def at_sender(self):
         """The sender of the message formatted as mention
 
         :return: a string representation of the sender of the message, formatted as `mention`_,
@@ -306,9 +323,9 @@ class Message:
 
         .. _mention: https://api.slack.com/docs/message-formatting#linking_to_channels_and_users
         """
-        return self._client.fmt_mention(self.sender)
+        return await self._client.fmt_mention(await self.get_sender())
 
-    def say(self, text, thread_ts=None):
+    async def say(self, text, thread_ts=None):
         """Send a new message to the channel the original message was received in
 
         Send a new message to the channel the original message was received in, using the RTM API.
@@ -321,9 +338,9 @@ class Message:
         :param thread_ts: optional timestamp of thread, to send a message in that thread
         :return: None
         """
-        self._client.send(self.channel.id, text, thread_ts)
+        await self._client.send((await self.get_channel()).id, text, thread_ts)
 
-    def say_scheduled(self, when, text):
+    async def say_scheduled(self, when, text):
         """Schedule a message
 
         This is the scheduled version of :py:meth:`~machine.plugins.base.Message.say`.
@@ -333,9 +350,9 @@ class Message:
         :param text: message text
         :return: None
         """
-        self._client.send_scheduled(when, self.channel.id, text)
+        self._client.send_scheduled(when, (await self.get_channel()).id, text)
 
-    def say_webapi(self, text, attachments=None, thread_ts=None, ephemeral=False):
+    async def say_webapi(self, text, attachments=None, thread_ts=None, ephemeral=False):
         """Send a new message using the WebAPI to the channel the original message was received in
 
         Send a new message to the channel the original message was received in, using the WebAPI.
@@ -358,19 +375,19 @@ class Message:
         .. _chat.postEphemeral: https://api.slack.com/methods/chat.postEphemeral
         """
         if ephemeral:
-            ephemeral_user = self.sender.id
+            ephemeral_user = (await self.get_sender()).id
         else:
             ephemeral_user = None
 
-        return self._client.send_webapi(
-            self.channel.id,
+        return await self._client.send_webapi(
+            (await self.get_channel()).id,
             text,
             attachments,
             thread_ts,
             ephemeral_user,
         )
 
-    def say_webapi_scheduled(self, when, text, attachments=None, ephemeral=False):
+    async def say_webapi_scheduled(self, when, text, attachments=None, ephemeral=False):
         """Schedule a message and send it using the WebAPI
 
         This is the scheduled version of :py:meth:`~machine.plugins.base.Message.say_webapi`.
@@ -386,13 +403,13 @@ class Message:
         :return: None
         """
         if ephemeral:
-            ephemeral_user = self.sender.id
+            ephemeral_user = (await self.get_sender()).id
         else:
             ephemeral_user = None
 
-        self._client.send_webapi_scheduled(when, self.channel.id, text, attachments, ephemeral_user)
+        self._client.send_webapi_scheduled(when, (await self.get_channel()).id, text, attachments, ephemeral_user)
 
-    def reply(self, text, in_thread=False):
+    async def reply(self, text, in_thread=False):
         """Reply to the sender of the original message
 
         Reply to the sender of the original message with a new message, mentioning that user.
@@ -402,12 +419,12 @@ class Message:
         :return: None
         """
         if in_thread:
-            self.say(text, thread_ts=self.thread_ts)
+            await self.say(text, thread_ts=self.thread_ts)
         else:
-            text = self._create_reply(text)
-            self.say(text)
+            text = await self._create_reply(text)
+            await self.say(text)
 
-    def reply_scheduled(self, when, text):
+    async def reply_scheduled(self, when, text):
         """Schedule a reply
 
         This is the scheduled version of :py:meth:`~machine.plugins.base.Message.reply`.
@@ -417,9 +434,9 @@ class Message:
         :param text: message text
         :return: None
         """
-        self.say_scheduled(when, self._create_reply(text))
+        self.say_scheduled(when, await self._create_reply(text))
 
-    def reply_webapi(self, text, attachments=None, in_thread=False, ephemeral=False):
+    async def reply_webapi(self, text, attachments=None, in_thread=False, ephemeral=False):
         """Reply to the sender of the original message using the WebAPI
 
         Reply to the sender of the original message with a new message, mentioning that user. Uses
@@ -442,12 +459,12 @@ class Message:
         .. _chat.postEphemeral: https://api.slack.com/methods/chat.postEphemeral
         """
         if in_thread and not ephemeral:
-            return self.say_webapi(text, attachments=attachments, thread_ts=self.thread_ts)
+            return await self.say_webapi(text, attachments=attachments, thread_ts=self.thread_ts)
         else:
-            text = self._create_reply(text)
+            text = await self._create_reply(text)
             return self.say_webapi(text, attachments=attachments, ephemeral=ephemeral)
 
-    def reply_webapi_scheduled(self, when, text, attachments=None, ephemeral=False):
+    async def reply_webapi_scheduled(self, when, text, attachments=None, ephemeral=False):
         """Schedule a reply and send it using the WebAPI
 
         This is the scheduled version of :py:meth:`~machine.plugins.base.Message.reply_webapi`.
@@ -461,9 +478,9 @@ class Message:
             visible to the sender of the original message
         :return: None
         """
-        self.say_webapi_scheduled(when, self._create_reply(text), attachments, ephemeral)
+        self.say_webapi_scheduled(when, await self._create_reply(text), attachments, ephemeral)
 
-    def reply_dm(self, text):
+    async def reply_dm(self, text):
         """Reply to the sender of the original message with a DM
 
         Reply in a Direct Message to the sender of the original message by opening a DM channel and
@@ -472,9 +489,9 @@ class Message:
         :param text: message text
         :return: None
         """
-        self._client.send_dm(self.sender.id, text)
+        await self._client.send_dm((await self.get_sender()).id, text)
 
-    def reply_dm_scheduled(self, when, text):
+    async def reply_dm_scheduled(self, when, text):
         """Schedule a DM reply
 
         This is the scheduled version of :py:meth:`~machine.plugins.base.Message.reply_dm`. It
@@ -484,9 +501,9 @@ class Message:
         :param text: message text
         :return: None
         """
-        self._client.send_dm_scheduled(when, self.sender.id, text)
+        self._client.send_dm_scheduled(when, (await self.get_sender()).id, text)
 
-    def reply_dm_webapi(self, text, attachments=None):
+    async def reply_dm_webapi(self, text, attachments=None):
         """Reply to the sender of the original message with a DM using the WebAPI
 
         Reply in a Direct Message to the sender of the original message by opening a DM channel and
@@ -501,9 +518,9 @@ class Message:
 
         .. _chat.postMessage: https://api.slack.com/methods/chat.postMessage
         """
-        return self._client.send_dm_webapi(self.sender.id, text, attachments)
+        return await self._client.send_dm_webapi((await self.get_sender()).id, text, attachments)
 
-    def reply_dm_webapi_scheduled(self, when, text, attachments=None):
+    async def reply_dm_webapi_scheduled(self, when, text, attachments=None):
         """Schedule a DM reply and send it using the WebAPI
 
         This is the scheduled version of :py:meth:`~machine.plugins.base.Message.reply_dm_webapi`.
@@ -516,9 +533,9 @@ class Message:
         :param attachments: optional attachments (see `attachments`_)
         :return: None
         """
-        self._client.send_dm_webapi_scheduled(when, self.sender.id, text, attachments)
+        self._client.send_dm_webapi_scheduled(when, (await self.get_sender()).id, text, attachments)
 
-    def react(self, emoji):
+    async def react(self, emoji):
         """React to the original message
 
         Add a reaction to the original message
@@ -528,11 +545,11 @@ class Message:
 
         .. _reactions.add: https://api.slack.com/methods/reactions.add
         """
-        return self._client.react(self.channel.id, self._msg_event['ts'], emoji)
+        return await self._client.react((await self.get_channel()).id, self._msg_event['ts'], emoji)
 
-    def _create_reply(self, text):
+    async def _create_reply(self, text):
         if not self.is_dm:
-            return "{}: {}".format(self.at_sender, text)
+            return "{}: {}".format(await self.at_sender(), text)
         else:
             return text
 
@@ -552,13 +569,13 @@ class Message:
     def __str__(self):
         return "Message '{}', sent by user @{} in channel #{}".format(
             self.text,
-            self.sender.name,
-            self.channel.name
+            self.user_id,
+            self.channel_id,
         )
 
     def __repr__(self):
         return "Message(text={}, sender={}, channel={})".format(
             repr(self.text),
-            repr(self.sender.name),
-            repr(self.channel.name)
+            repr(self.user_id),
+            repr(self.channel_id),
         )

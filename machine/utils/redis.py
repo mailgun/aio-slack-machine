@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from urllib.parse import urlparse
 
 
@@ -7,6 +9,7 @@ def gen_config_dict(settings):
         db = url.path[1:]
     else:
         db = 0
+
     max_connections = settings.get('REDIS_MAX_CONNECTIONS', None)
     return {
         'host': url.hostname,
