@@ -47,7 +47,9 @@ async def split(tasks: Sequence[Coroutine]) -> Tuple[List[Any], List[Type[Except
     return return_values, exceptions
 
 
-def run_coro(coro: Coroutine, loop: Optional[asyncio.AbstractEventLoop] = None) -> Any:
+def run_coro_until_complete(
+    coro: Coroutine, loop: Optional[asyncio.AbstractEventLoop] = None
+) -> Any:
     if loop is None:
         loop = asyncio.get_event_loop()
 

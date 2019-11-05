@@ -1,21 +1,20 @@
 # -*- coding: utf-8 -*-
 
 from machine.singletons import Scheduler, Slack
-from machine.utils.aio import run_coro
+from machine.utils.aio import run_coro_until_complete
 
 
 class MessagingClient:
-
     @property
     def channels(self):
-        return run_coro(self.get_channels())
+        return run_coro_until_complete(self.get_channels())
 
     async def get_channels(self):
         return Slack.get_instance().web.channels_list()
 
     @property
     def users(self):
-        return run_coro(self.get_users())
+        return run_coro_until_complete(self.get_users())
 
     async def get_users(self):
         return Slack.get_instance().web.users_list()

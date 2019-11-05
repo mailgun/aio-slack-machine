@@ -6,10 +6,11 @@ import logging
 import sys
 import time
 from functools import partial
+from typing import Mapping, Optional
 
 import dill
 from aiohttp.web import Application, AppRunner, TCPSite
-from clint.textui import puts, indent, colored
+from loguru import logger
 
 from machine.dispatch import EventDispatcher
 from machine.plugins.base import MachineBasePlugin
@@ -17,164 +18,161 @@ from machine.settings import import_settings
 from machine.singletons import Slack, Scheduler, Storage
 from machine.slack import MessagingClient
 from machine.storage import PluginStorage
-from machine.utils import aio
+from machine.utils import aio, collections, log_propagate
 from machine.utils.module_loading import import_string
-from machine.utils.text import show_valid, show_invalid, warn, error, announce
-
-logger = logging.getLogger(__name__)
 
 
 class Machine:
+    _client: Slack
+    _dispatcher: EventDispatcher
+    _loop: asyncio.AbstractEventLoop
+    _settings: collections.CaseInsensitiveDict
+    _storage: Storage
+
+    _help: Mapping[str, dict] = {"human": {}, "robot": {}}
+    _http_app: Optional[Application] = None
+    _http_runner: Optional[AppRunner] = None
+    _plugin_actions: Mapping[str, dict] = {
+        "process": {},
+        "listen_to": {},
+        "respond_to": {},
+        "catch_all": {},
+    }
+
     def __init__(self, loop=None, settings=None):
-        announce("Initializing Slack Machine:")
+        logger.info("Initializing Slack Machine")
 
-        with indent(4):
-            self._loop = loop or asyncio.get_event_loop()
+        self._loop = loop or asyncio.get_event_loop()
 
-            puts("Loading settings...")
-            if settings:
-                self._settings = settings
-                found_local_settings = True
-            else:
-                self._settings, found_local_settings = import_settings()
+        logger.debug("Loading settings...")
+        if settings:
+            self._settings = settings
+            found_local_settings = True
+        else:
+            self._settings, found_local_settings = import_settings()
 
+        if self._settings.get("LOG_PROPAGATE", True):
             fmt = (
                 "[%(asctime)s][%(levelname)s] %(name)s %(filename)s:%(funcName)s"
                 ":%(lineno)d | %(message)s"
             )
             date_fmt = "%Y-%m-%d %H:%M:%S"
-            log_level = self._settings.get("LOGLEVEL", logging.ERROR)
+
+            log_level = self._settings.get("LOG_LEVEL", logging.ERROR)
             logging.basicConfig(level=log_level, format=fmt, datefmt=date_fmt)
 
-            if not found_local_settings:
-                warn("No local_settings found! Are you sure this is what you want?")
+            log_propagate.install()
 
-            if "SLACK_API_TOKEN" not in self._settings:
-                error("No SLACK_API_TOKEN found in settings! I need that to work...")
-                sys.exit(1)
-
-            self._client = Slack(loop=self._loop)
-
-            puts(
-                "Initializing storage using backend: {}".format(
-                    self._settings["STORAGE_BACKEND"]
-                )
-            )
-            self._storage = Storage.get_instance()
-            logger.debug("Storage initialized!")
-
-            self._loop.run_until_complete(self._storage.connect())
-
-            self._plugin_actions = {
-                "process": {},
-                "listen_to": {},
-                "respond_to": {},
-                "catch_all": {},
-            }
-
-            self._help = {"human": {}, "robot": {}}
-
-            self._http_runner_cleanup = None
-            if not self._settings["DISABLE_HTTP"]:
-                self._http_app = Application(loop=self._loop)
-            else:
-                self._http_app = None
-
-            puts("Loading plugins...")
-            self.load_plugins()
-            logger.debug(
-                "The following plugin actions were registered: %s", self._plugin_actions
+        if not found_local_settings:
+            logger.warning(
+                "No local_settings found! Are you sure this is what you want?"
             )
 
-            self._dispatcher = EventDispatcher(self._plugin_actions, self._settings)
+        if "SLACK_API_TOKEN" not in self._settings:
+            logger.error("No SLACK_API_TOKEN found in settings! I need that to work...")
+            sys.exit(1)
+
+        self._client = Slack(loop=self._loop)
+
+        logger.info(
+            "Initializing storage using backend: {}".format(
+                self._settings["STORAGE_BACKEND"]
+            )
+        )
+        self._storage = Storage.get_instance()
+        logger.debug("Storage initialized!")
+
+        self._loop.run_until_complete(self._storage.connect())
+
+        if not self._settings["DISABLE_HTTP"]:
+            self._http_app = Application(loop=self._loop)
+        else:
+            self._http_app = None
+
+        logger.debug("Loading plugins...")
+        self.load_plugins()
+        logger.debug(
+            f"The following plugin actions were registered: {self._plugin_actions}"
+        )
+
+        self._dispatcher = EventDispatcher(self._plugin_actions, self._settings)
 
     def load_plugins(self):
-        with indent(4):
-            logger.debug("PLUGINS: %s", self._settings["PLUGINS"])
-            for plugin in self._settings["PLUGINS"]:
-                for class_name, cls in import_string(plugin):
-                    if (
-                        issubclass(cls, MachineBasePlugin)
-                        and cls is not MachineBasePlugin
-                    ):
-                        logger.debug("Found a Machine plugin: {}".format(plugin))
-                        storage = PluginStorage(class_name)
-                        instance = cls(self._settings, MessagingClient(), storage)
+        for plugin in self._settings["PLUGINS"]:
+            for class_name, cls in import_string(plugin):
+                if issubclass(cls, MachineBasePlugin) and cls is not MachineBasePlugin:
+                    logger.debug("Found a Machine plugin: {}".format(plugin))
+                    storage = PluginStorage(class_name)
+                    instance = cls(self._settings, MessagingClient(), storage)
 
-                        missing_settings = self._register_plugin(class_name, instance)
-                        if missing_settings:
-                            show_invalid(class_name)
-                            with indent(4):
-                                error_msg = "The following settings are missing: {}".format(
-                                    ", ".join(missing_settings)
-                                )
-                                puts(colored.red(error_msg))
-                                puts(colored.red("This plugin will not be loaded!"))
-                            del instance
-                        else:
-                            instance.init(self._http_app)
-                            self._loop.run_until_complete(
-                                instance.ainit(self._http_app)
-                            )
-                            show_valid(class_name)
+                    missing_settings = self._register_plugin(class_name, instance)
+                    if missing_settings:
+                        error_msg = "The following settings are missing: {}".format(
+                            ", ".join(missing_settings)
+                        )
+                        logger.error(
+                            f"{class_name}: {error_msg}. This plugin will not be loaded!"
+                        )
+                        del instance
+                    else:
+                        instance.init(self._http_app)
+                        self._loop.run_until_complete(instance.ainit(self._http_app))
+                        logger.info(f"Loaded plugin: {class_name}")
 
         self._loop.run_until_complete(
             self._storage.set("manual", dill.dumps(self._help))
         )
 
     async def run(self):
-        announce("\nStarting Slack Machine:")
+        logger.info("Starting Slack Machine")
         self._dispatcher.start()
 
-        with indent(4):
-            try:
-                await aio.join(
-                    [
-                        self._connect_slack(),
-                        self._start_scheduler(),
-                        self._start_http_server(),
-                        self._start_keepaliver(),
-                    ]
-                )
-            except (KeyboardInterrupt, SystemExit):
-                announce("\nSlack Machine shutting down...")
+        keepaliver: Optional[asyncio.Task] = None
+        try:
+            await aio.join([self._start_scheduler(), self._start_http_server()])
+            # Launch the keepaliver task, keeping a handle to it
+            # in the current context so it can be cancelled later.
+            keepaliver = await self._start_keepaliver()
+            # `rtm.start()` will be continuously waited on and will not
+            # return unless the connection is closed.
+            logger.info("Connecting to Slack...")
+            await self._client.rtm.start()
+        except (KeyboardInterrupt, SystemExit):
+            logger.info("Slack Machine shutting down...")
+
+            # Halt the keepaliver task
+            if keepaliver and not keepaliver.cancelled():
+                keepaliver.cancel()
+
+            # Clean up/shut down the aiohttp AppRunner
+            if self._http_runner is not None:
                 await self._http_runner.cleanup()
 
-    async def _connect_slack(self):
-        # `rtm.start()` will be continuously waited on and will not
-        # return unless the connection is closed.
-        if not await self._client.rtm.start():
-            logger.error("Could not connect to Slack! Aborting...")
-            sys.exit(1)
-
     async def _start_scheduler(self):
-        show_valid("Starting scheduler...")
-        Scheduler.get_instance().start()
+        logger.info("Starting scheduler...")
+        await aio.run_in_threadpool(Scheduler.get_instance().start)
 
     async def _start_http_server(self):
         if self._http_app is not None:
-            show_valid(f"Starting web server on {http_host}:{http_port}...")
-
-            runner = AppRunner(self._http_app)
-            await runner.setup()
-
             http_host = self._settings.get("HTTP_SERVER_HOST", "127.0.0.1")
             http_port = int(self._settings.get("HTTP_SERVER_PORT", 3000))
+            logger.info(f"Starting web server on {http_host}:{http_port}...")
 
-            site = TCPSite(runner, http_host, http_port)
+            self._http_runner = AppRunner(self._http_app)
+            await self._http_runner.setup()
+
+            site = TCPSite(self._http_runner, http_host, http_port)
             await site.start()
 
-            self._http_runner = runner
+        logger.debug("Started web server!")
 
     async def _start_keepaliver(self):
         interval = self._settings["KEEP_ALIVE"]
         if interval:
-            show_valid(f"Starting keepaliver... [Interval: {interval}s]")
-            await self._keepaliver(interval)
+            logger.info(f"Starting keepaliver... [Interval: {interval}s]")
+            return asyncio.create_task(self._keepaliver(interval))
 
-    def _start_dispatcher(self):
-        show_valid("Starting dispatcher...")
-        self._dispatcher.start()
+        return None
 
     def _register_plugin(self, plugin_class, cls_instance):
         missing_settings = []
@@ -254,9 +252,6 @@ class Machine:
                     replace_existing=True,
                     **config,
                 )
-            elif action == "route":
-                for route_config in config:
-                    bottle.route(**route_config)(fn)
 
     @staticmethod
     def _parse_human_help(doc):

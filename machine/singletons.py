@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from loguru import logger
+from slack import RTMClient, WebClient
+
 from machine.settings import import_settings
 from machine.utils import Singleton
 from machine.utils.module_loading import import_string
 from machine.utils.readonly_proxy import ReadonlyProxy
 from machine.utils.redis import gen_config_dict
-from slack import RTMClient, WebClient
-
-log = logging.getLogger(__name__)
 
 
 class Slack(metaclass=Singleton):

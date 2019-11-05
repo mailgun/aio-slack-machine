@@ -3,14 +3,13 @@
 import asyncio
 import time
 import re
-import logging
+
+from loguru import logger
 
 from machine.singletons import Slack
 from machine.utils.pool import ThreadPool
 from machine.plugins.base import Message
 from machine.slack import MessagingClient
-
-logger = logging.getLogger(__name__)
 
 
 class EventDispatcher:
@@ -36,6 +35,8 @@ class EventDispatcher:
         self._client.rtm.on(event="open", callback=self.handle_event)
 
     async def handle_event(self, *, data: dict, **kwargs):
+        logger.debug(f"Handling event {data}, {kwargs}")
+
         # Gotta catch 'em all!
         await asyncio.gather(
             action["function"](data) for action in self._find_listeners("catch_all")
