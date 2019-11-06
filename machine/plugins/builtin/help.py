@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import logging
 from machine.plugins.base import MachineBasePlugin
 from machine.plugins.decorators import respond_to
@@ -11,7 +12,7 @@ class HelpPlugin(MachineBasePlugin):
     @respond_to(r'^help$')
     async def help(self, msg):
         """help: display this help text"""
-        manual = await self.storage.get('manual', shared=True)['human']
+        manual = (await self.storage.get('manual', shared=True))['human']
         help_text = "This is what I can respond to:\n\n"
         help_text += "\n\n".join([self._gen_class_help_text(cls, fn)
                                   for cls, fn in manual.items() if fn])
@@ -20,7 +21,7 @@ class HelpPlugin(MachineBasePlugin):
     @respond_to(r'^robot help$')
     async def robot_help(self, msg):
         "robot help: display regular expressions that the bot responds to"
-        robot_manual = await self.storage.get('manual', shared=True)['robot']
+        robot_manual = (await self.storage.get('manual', shared=True))['robot']
         help_text = "This is what triggers me:\n\n"
         help_text += "\n\n".join([self._gen_class_robot_help(cls, regexes)
                                   for cls, regexes in robot_manual.items()])

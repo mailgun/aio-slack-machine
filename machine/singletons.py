@@ -19,7 +19,6 @@ class Slack(metaclass=Singleton):
     __slots__ = "_login_data", "_rtm_client", "_web_client"
 
     def __init__(self, loop=None):
-        print(f"Got loop: {loop}")
         if not loop:
             loop = asyncio.get_event_loop()
 

@@ -9,5 +9,9 @@ class ReadonlyProxy(Generic[T]):
     def __init__(self, target: T):
         self._target = target
 
+    def __getitem__(self, item: Any) -> Any:
+        _target = getattr(self, "_target")
+        return _target[item]
+
     def __getattr__(self, item: str) -> Any:
         return getattr(self._target, item)
