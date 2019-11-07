@@ -1,0 +1,56 @@
+version: 2.1
+
+workflows:
+  version: 2
+  workflow:
+    jobs:
+    - test python3.7
+    - test python3.8
+
+commands:
+  tox:
+    description: "Execute tox env"
+    parameters:
+      env:
+        type: "string"
+        default: "py37"
+    steps:
+    - restore_cache:
+        keys:
+        - venv-<< parameters.env >>-{{ .Environment.cacheVer }}-{{ checksum "requirements.txt" }}-{{ checksum "setup.py" }}
+    - run:
+        name: "setup up test environment"
+        command: |
+          mkdir ./test-reports
+          mkdir ./test-reports/coverage
+          pip install virtualenv
+          virtualenv venv
+          source venv/bin/activate
+          pip install -U setuptools tox codecov
+    - save_cache:
+        key: venv-<< parameters.env >>-{{ .Environment.cacheVer }}-{{ checksum "requirements.txt" }}-{{ checksum "setup.py" }}
+        paths:
+        - venv
+    - run:
+        tox -e << parameters.env >>
+    - store_artifacts:
+        path: test-reports
+    - store_test_results:
+        path: test-reports
+
+jobs:
+  test python3.7:
+    docker:
+    - image: circleci/python:3.7
+    steps:
+    - checkout
+    - tox:
+        env: py37
+
+  test python3.8:
+    docker:
+    - image: circleci/python:3.8
+    steps:
+    - checkout
+    - tox:
+        env: py38
