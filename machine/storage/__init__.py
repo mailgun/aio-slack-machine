@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import dill
 
 from machine.singletons import Storage
@@ -14,6 +15,7 @@ class PluginStorage:
 
     .. _Dill: https://pypi.python.org/pypi/dill
     """
+
     def __init__(self, fq_plugin_name):
         self._fq_plugin_name = fq_plugin_name
 
@@ -90,6 +92,3 @@ class PluginStorage:
             applicable division. eg. B for Bytes, KiB for Kilobytes, MiB for Megabytes etc.
         """
         return sizeof_fmt(await self.get_storage_size())
-
-    async def __contains__(self, key):
-        return await self.has(key, False)

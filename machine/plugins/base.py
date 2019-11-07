@@ -33,17 +33,8 @@ class MachineBasePlugin:
         ``self.settings``, and access storage through ``self.storage``, but the Slack client has
         not been initialized yet, so you cannot send or process messages during initialization.
 
-        :return: None
-        """
-        pass
-
-    async def ainit(self, http_app: Application):
-        """ Asynchronous initialize plugin
-
-        This method can be implemented by concrete plugin classes. It will be called **once**
-        for each plugin, when that plugin is first loaded. You can refer to settings via
-        ``self.settings``, and access storage through ``self.storage``, but the Slack client has
-        not been initialized yet, so you cannot send or process messages during initialization.
+        This method can be specified as either synchronous or asynchronous, depending on the needs
+        of the plugin.
 
         :return: None
         """
@@ -97,7 +88,9 @@ class MachineBasePlugin:
         """
         return self._client.fmt_mention(user["id"])
 
-    async def say(self, channel, text, attachments=None, thread_ts=None, ephemeral_user=None):
+    async def say(
+        self, channel, text, attachments=None, thread_ts=None, ephemeral_user=None
+    ):
         """Send a message to a channel using the WebAPI
 
         Send a message to a channel using the WebAPI. Allows for rich formatting using
@@ -121,7 +114,9 @@ class MachineBasePlugin:
         .. _chat.postMessage: https://api.slack.com/methods/chat.postMessage
         .. _chat.postEphemeral: https://api.slack.com/methods/chat.postEphemeral
         """
-        return await self._client.send_webapi(channel, text, attachments, thread_ts, ephemeral_user)
+        return await self._client.send_webapi(
+            channel, text, attachments, thread_ts, ephemeral_user
+        )
 
     def say_scheduled(self, when, channel, text, attachments, ephemeral_user):
         """Schedule a message to a channel and send it using the WebAPI

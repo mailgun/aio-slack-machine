@@ -33,7 +33,6 @@ class Machine:
         "process": {},
         "listen_to": {},
         "respond_to": {},
-        "catch_all": {},
     }
 
     def __init__(self, loop=None, settings=None):
@@ -70,8 +69,8 @@ class Machine:
 
         self._loop.run_until_complete(self._storage.connect())
 
-        if not self._settings["DISABLE_HTTP"]:
-            self._http_app = Application(loop=self._loop)
+        if not self._settings.get("DISABLE_HTTP", False):
+            self._http_app = Application()
         else:
             self._http_app = None
 
@@ -101,8 +100,11 @@ class Machine:
                         )
                         del instance
                     else:
-                        instance.init(self._http_app)
-                        self._loop.run_until_complete(instance.ainit(self._http_app))
+                        if inspect.iscoroutinefunction(instance.init):
+                            self._loop.run_until_complete(instance.init(self._http_app))
+                        else:
+                            instance.init(self._http_app)
+
                         logger.info(f"Loaded plugin: {class_name}")
 
         self._loop.run_until_complete(
