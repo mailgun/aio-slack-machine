@@ -34,16 +34,16 @@ class Message:
         :return: the timestamp of the original message
         """
         try:
-            thread_ts = self._msg_event['thread_ts']
+            thread_ts = self._msg_event["thread_ts"]
         except KeyError:
-            thread_ts = self._msg_event['ts']
+            thread_ts = self._msg_event["ts"]
 
         return thread_ts
 
     @property
     def is_dm(self) -> bool:
         chan = self.channel_id
-        return not (chan.startswith('C') or chan.startswith('G'))
+        return not (chan.startswith("C") or chan.startswith("G"))
 
     @property
     def at_sender(self):
@@ -62,7 +62,7 @@ class Message:
 
         :return: the body (text) of the actual message
         """
-        return self._msg_event['text']
+        return self._msg_event["text"]
 
     @alru_cache(maxsize=8)
     async def get_sender(self) -> dict:
@@ -104,9 +104,7 @@ class Message:
         """
 
         return await self._client.send(
-            self.channel_id,
-            text,
-            **self._handle_context_args(**kwargs),
+            self.channel_id, text, **self._handle_context_args(**kwargs)
         )
 
     def say_scheduled(self, when, text, **kwargs):
@@ -126,10 +124,7 @@ class Message:
         """
 
         self._client.send_scheduled(
-            when,
-            self.channel_id,
-            text,
-            **self._handle_context_args(**kwargs)
+            when, self.channel_id, text, **self._handle_context_args(**kwargs)
         )
 
     async def reply(self, text, **kwargs):
@@ -180,7 +175,7 @@ class Message:
         if in_thread and not ephemeral:
             text = self._create_reply(text)
 
-        self.say_scheduled(text, **self._handle_context_args(**kwargs))
+        self.say_scheduled(when, text, **self._handle_context_args(**kwargs))
 
     async def reply_dm(self, text, **kwargs):
         """Reply to the sender of the original message with a DM using the WebAPI
@@ -197,7 +192,9 @@ class Message:
 
         .. _chat.postMessage: https://api.slack.com/methods/chat.postMessage
         """
-        return await self._client.send_dm(self.user_id, text, **self._handle_context_args(**kwargs))
+        return await self._client.send_dm(
+            self.user_id, text, **self._handle_context_args(**kwargs)
+        )
 
     def reply_dm_scheduled(self, when, text, **kwargs):
         """Schedule a DM reply and send it using the WebAPI
@@ -212,7 +209,9 @@ class Message:
         :param attachments: optional attachments (see `attachments`_)
         :return: None
         """
-        self._client.send_dm_scheduled(when, self.user_id, text, **self._handle_context_args(**kwargs))
+        self._client.send_dm_scheduled(
+            when, self.user_id, text, **self._handle_context_args(**kwargs)
+        )
 
     async def react(self, emoji):
         """React to the original message
@@ -254,14 +253,10 @@ class Message:
 
     def __str__(self):
         return "Message '{}', sent by user @{} in channel #{}".format(
-            self.text,
-            self.user_id,
-            self.channel_id,
+            self.text, self.user_id, self.channel_id
         )
 
     def __repr__(self):
         return "Message(text={}, sender={}, channel={})".format(
-            repr(self.text),
-            repr(self.user_id),
-            repr(self.channel_id),
+            repr(self.text), repr(self.user_id), repr(self.channel_id)
         )

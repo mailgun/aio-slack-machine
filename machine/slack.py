@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from datetime import datetime
-from typing import Optional, Mapping, NewType, Sequence
+from typing import Optional, Sequence
 
 from async_lru import alru_cache
 from slack.web.slack_response import SlackResponse
@@ -20,9 +20,9 @@ class MessagingClient:
         channel_id: str,
         text: str,
         *,
-        attachments: Optional[Sequence[dict]]=None,
-        thread_ts: Optional[str]=None,
-        ephemeral_user: Optional[str]=None,
+        attachments: Optional[Sequence[dict]] = None,
+        thread_ts: Optional[str] = None,
+        ephemeral_user: Optional[str] = None,
     ) -> SlackResponse:
         method = "chat.postEphemeral" if ephemeral_user else "chat.postMessage"
         payload = {
@@ -42,13 +42,15 @@ class MessagingClient:
 
     @staticmethod
     async def react(channel_id: str, ts: str, emoji: str) -> SlackResponse:
-        return await Slack.get_instance().api_call(
-            "reactions.add", name=emoji, channel=channel_id, timestamp=ts
-        )
+        payload = {"name": emoji, "channel": channel_id, "timestamp": ts}
+
+        return await Slack.get_instance().web.api_call("reactions.add", json=payload)
 
     @staticmethod
     async def open_im(user_id: str) -> str:
-        response = await Slack.get_instance().web.api_call("im.open", json={"user": user_id})
+        response = await Slack.get_instance().web.api_call(
+            "im.open", json={"user": user_id}
+        )
         return response["channel"]["id"]
 
     @property
@@ -84,12 +86,14 @@ class MessagingClient:
     def fmt_mention(self, user: dict) -> str:
         return f"<@{user['id']}>"
 
-    def send_scheduled(
-        self, when: datetime, channel_id: str, text: str, **kwargs
-    ):
-        args = [self, channel_id, text]
+    def send_scheduled(self, when: datetime, channel_id: str, text: str, **kwargs):
+        args = [channel_id, text]
         Scheduler.get_instance().add_job(
-            MessagingClient.send, trigger="date", args=args, kwargs=kwargs, run_date=when
+            MessagingClient.send,
+            trigger="date",
+            args=args,
+            kwargs=kwargs,
+            run_date=when,
         )
 
     async def send_dm(self, user_id: str, text: str, **kwargs) -> SlackResponse:

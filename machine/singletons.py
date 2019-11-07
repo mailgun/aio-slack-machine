@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from loguru import logger
 from slack import RTMClient, WebClient
 
 from machine.settings import import_settings
@@ -67,7 +66,7 @@ class Scheduler(metaclass=Singleton):
             loop = asyncio.get_event_loop()
 
         _settings, _ = import_settings()
-        self._scheduler = AsyncIOScheduler()
+        self._scheduler = AsyncIOScheduler(event_loop=loop)
         if "REDIS_URL" in _settings:
             redis_config = gen_config_dict(_settings)
             self._scheduler.add_jobstore("redis", **redis_config)

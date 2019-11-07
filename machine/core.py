@@ -2,10 +2,7 @@
 
 import asyncio
 import inspect
-import logging
 import sys
-import time
-from functools import partial
 from typing import Mapping, Optional
 
 import dill
@@ -40,6 +37,7 @@ class Machine:
     }
 
     def __init__(self, loop=None, settings=None):
+        log_propagate.install()
         logger.info("Initializing Slack Machine")
 
         self._loop = loop or asyncio.get_event_loop()
@@ -50,18 +48,6 @@ class Machine:
             found_local_settings = True
         else:
             self._settings, found_local_settings = import_settings()
-
-        if self._settings.get("LOG_PROPAGATE", True):
-            fmt = (
-                "[%(asctime)s][%(levelname)s] %(name)s %(filename)s:%(funcName)s"
-                ":%(lineno)d | %(message)s"
-            )
-            date_fmt = "%Y-%m-%d %H:%M:%S"
-
-            log_level = self._settings.get("LOG_LEVEL", logging.ERROR)
-            logging.basicConfig(level=log_level, format=fmt, datefmt=date_fmt)
-
-            log_propagate.install()
 
         if not found_local_settings:
             logger.warning(
@@ -79,7 +65,7 @@ class Machine:
                 self._settings["STORAGE_BACKEND"]
             )
         )
-        self._storage = Storage.get_instance()
+        self._storage = Storage()
         logger.debug("Storage initialized!")
 
         self._loop.run_until_complete(self._storage.connect())
@@ -150,7 +136,7 @@ class Machine:
 
     async def _start_scheduler(self):
         logger.info("Starting scheduler...")
-        await aio.run_in_threadpool(Scheduler.get_instance().start)
+        Scheduler(loop=self._loop).start()
 
     async def _start_http_server(self):
         if self._http_app is not None:
@@ -201,15 +187,13 @@ class Machine:
                     plugin_class, fn.metadata, cls_instance, name, fn, class_help
                 )
 
-    def _check_missing_settings(self, fn_or_class):
+    def _check_missing_settings(self, item):
         missing_settings = []
-        if (
-            hasattr(fn_or_class, "metadata")
-            and "required_settings" in fn_or_class.metadata
-        ):
-            for setting in fn_or_class.metadata["required_settings"]:
+        if hasattr(item, "metadata") and "required_settings" in item.metadata:
+            for setting in item.metadata["required_settings"]:
                 if setting not in self._settings:
                     missing_settings.append(setting.upper())
+
         return missing_settings
 
     def _register_plugin_actions(
