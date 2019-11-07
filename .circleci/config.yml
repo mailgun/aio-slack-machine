@@ -4,6 +4,7 @@ workflows:
   version: 2
   workflow:
     jobs:
+    - lint flake8
     - test python3.7
     - test python3.8
 
@@ -54,3 +55,11 @@ jobs:
     - checkout
     - tox:
         env: py38
+
+  lint flake8:
+    docker:
+    - image: circleci/python:3.8
+    steps:
+    - checkout
+    - tox:
+        env: flake8
