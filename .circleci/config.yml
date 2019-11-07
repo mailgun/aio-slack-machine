@@ -18,7 +18,7 @@ commands:
     steps:
     - restore_cache:
         keys:
-        - venv-<< parameters.env >>-{{ .Environment.cacheVer }}-{{ checksum "requirements.txt" }}-{{ checksum "setup.py" }}
+        - venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Environment.cacheVer }}-{{ checksum "requirements.txt" }}-{{ checksum "setup.py" }}
     - run:
         name: "setup up test environment"
         command: |
@@ -29,37 +29,53 @@ commands:
           source venv/bin/activate
           pip install -U setuptools tox codecov
     - save_cache:
-        key: venv-<< parameters.env >>-{{ .Environment.cacheVer }}-{{ checksum "requirements.txt" }}-{{ checksum "setup.py" }}
+        key: venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Environment.cacheVer }}-{{ checksum "requirements.txt" }}-{{ checksum "setup.py" }}
         paths:
         - venv
     - run:
-        source venv/bin/activate
-        tox -e << parameters.env >>
+        name: "tox: << parameters.env >>"
+        command: |
+          source venv/bin/activate
+          tox -e << parameters.env >>
     - store_artifacts:
         path: test-reports
     - store_test_results:
         path: test-reports
 
+executors:
+  python:
+    parameters:
+      version:
+        type: "string"
+        default: "3.8"
+    docker:
+    - image: circleci/python:<< parameters.version >>
+    environment:
+      PYTHON_VERSION: "<< parameters.version >>"
+
 jobs:
   test-python37:
-    docker:
-    - image: circleci/python:3.7
+    executor:
+      name: "python"
+      version: "3.7"
     steps:
     - checkout
     - tox:
         env: py37
 
   test-python38:
-    docker:
-    - image: circleci/python:3.8
+    executor:
+      name: "python"
+      version: "3.8"
     steps:
     - checkout
     - tox:
         env: py38
 
   lint-flake8:
-    docker:
-    - image: circleci/python:3.8
+    executor:
+      name: "python"
+      version: "3.8"
     steps:
     - checkout
     - tox:
