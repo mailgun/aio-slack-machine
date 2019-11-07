@@ -4,9 +4,9 @@ workflows:
   version: 2
   workflow:
     jobs:
-    - lint flake8
-    - test python3.7
-    - test python3.8
+    - lint-flake8
+    - test-python37
+    - test-python38
 
 commands:
   tox:
@@ -40,7 +40,7 @@ commands:
         path: test-reports
 
 jobs:
-  test python3.7:
+  test-python37:
     docker:
     - image: circleci/python:3.7
     steps:
@@ -48,7 +48,7 @@ jobs:
     - tox:
         env: py37
 
-  test python3.8:
+  test-python38:
     docker:
     - image: circleci/python:3.8
     steps:
@@ -56,7 +56,7 @@ jobs:
     - tox:
         env: py38
 
-  lint flake8:
+  lint-flake8:
     docker:
     - image: circleci/python:3.8
     steps:
