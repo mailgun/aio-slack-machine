@@ -33,6 +33,7 @@ commands:
         paths:
         - venv
     - run:
+        source venv/bin/activate
         tox -e << parameters.env >>
     - store_artifacts:
         path: test-reports
