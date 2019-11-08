@@ -3,8 +3,6 @@
 import os
 from importlib import import_module
 
-from loguru import logger
-
 from machine.utils.collections import CaseInsensitiveDict
 
 

@@ -24,8 +24,7 @@ commands:
         command: |
           mkdir ./test-reports
           mkdir ./test-reports/coverage
-          pip install virtualenv
-          virtualenv venv
+          test ! -d venv && pip install virtualenv && virtualenv venv
           source venv/bin/activate
           pip install -U setuptools tox codecov
     - save_cache:

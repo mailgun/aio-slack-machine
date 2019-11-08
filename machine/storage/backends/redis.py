@@ -15,8 +15,7 @@ class RedisStorage(MachineBaseStorage):
 
     async def connect(self):
         self._redis = await aioredis.create_redis_pool(
-            self._redis_url,
-            maxsize=self._max_connections,
+            self._redis_url, maxsize=self._max_connections
         )
 
     def _ensure_connected(self):
@@ -44,9 +43,8 @@ class RedisStorage(MachineBaseStorage):
 
     async def size(self):
         self._ensure_connected()
-        info = await self._redis.info('memory')
-        return info['used_memory']
-
+        info = await self._redis.info("memory")
+        return info["used_memory"]
 
 
 class NotConnectedError(Exception):
