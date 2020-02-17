@@ -245,9 +245,6 @@ class Message:
         if kwargs.pop("in_thread", False):
             next_kwargs["thread_ts"] = self.thread_ts
 
-        if "ephemeral_user" in next_kwargs and "thread_ts" in next_kwargs:
-            raise ValueError("Messages may be in-thread or ephemeral, not both")
-
         next_kwargs.update(kwargs)
         return next_kwargs
 

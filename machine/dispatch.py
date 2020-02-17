@@ -33,7 +33,13 @@ class EventDispatcher:
         """
 
         async def dispatch(*, data: dict, **kwargs):
-            return await self.handle_event(event_type, data=data, **kwargs)
+            try:
+                return await self.handle_event(event_type, data=data, **kwargs)
+            except Exception:
+                logger.exception(
+                    f"An exception occurred while dispatching event {event_type}"
+                )
+                pass
 
         return dispatch
 
