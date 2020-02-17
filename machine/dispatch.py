@@ -39,7 +39,6 @@ class EventDispatcher:
                 logger.exception(
                     f"An exception occurred while dispatching event {event_type}"
                 )
-                pass
 
         return dispatch
 
