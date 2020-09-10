@@ -20,6 +20,9 @@ class PluginStorage:
         self._fq_plugin_name = fq_plugin_name
 
     def _gen_unique_key(self, key):
+        if key.startswith(self._fq_plugin_name):
+            return key
+
         return "{}:{}".format(self._fq_plugin_name, key)
 
     def _namespace_key(self, key, shared):
