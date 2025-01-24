@@ -69,7 +69,7 @@ jobs:
         python ./setup.py build bdist_wheel -d ./dist
 
     - name: Upload dists
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: dist-${{ matrix.python }}
         path: dist
