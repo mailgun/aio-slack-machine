@@ -77,7 +77,7 @@ setup(
     author_email=about["__email__"],
     setup_requires=["pytest-runner"],
     tests_require=[
-        "pytest-asyncio==0.12.0",
+        "pytest-asyncio==0.17.1",
         "pytest-cov==2.7.1",
         "pytest-html==1.21.1",
         "pytest-metadata==1.8.0",
