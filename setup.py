@@ -77,11 +77,12 @@ setup(
     author_email=about["__email__"],
     setup_requires=["pytest-runner"],
     tests_require=[
-        "pytest-asyncio==0.17.1",
+        "pytest-asyncio==0.17.2",
         "pytest-cov==2.7.1",
         "pytest-html==1.21.1",
         "pytest-metadata==1.8.0",
         "pytest-mock==1.11.2",
+        "pytest==5.4.3",
         "coverage",
     ],
     install_requires=dependencies,
