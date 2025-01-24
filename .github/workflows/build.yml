@@ -49,7 +49,7 @@ jobs:
           curl \
           git \
           openssh-client
-        pip install virtualenv ply setuptools importlib_metadata wheel tox codecov
+        pip install virtualenv ply setuptools packaging ordered-set more_itertools jaraco.text importlib_resources importlib_metadata tomli wheel platformdirs wheel tox codecov
         virtualenv ./venv
         source ./venv/bin/activate
         pip install -U pip
