@@ -55,7 +55,6 @@ jobs:
         virtualenv ./venv
         source ./venv/bin/activate
         pip install -U pip
-
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
     - name: Build wheels
@@ -68,6 +67,8 @@ jobs:
     - name: Build dists
       run: |
         source ./venv/bin/activate
+        pip uninstall -y packaging ordered-set more_itertools jaraco.text importlib_resources importlib_metadata tomli wheel platformdirs
+        pip install packaging ordered-set more_itertools jaraco.text importlib_resources importlib_metadata tomli wheel platformdirs
         mkdir -p ./dist
         python ./setup.py build bdist_wheel -d ./dist
 
