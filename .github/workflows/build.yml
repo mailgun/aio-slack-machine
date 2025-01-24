@@ -49,9 +49,9 @@ jobs:
           curl \
           git \
           openssh-client
+        pip install virtualenv ply setuptools wheel tox codecov
         pip uninstall -y packaging ordered-set more_itertools jaraco.text importlib_resources importlib_metadata tomli wheel platformdirs
         pip install packaging ordered-set more_itertools jaraco.text importlib_resources importlib_metadata tomli wheel platformdirs
-        pip install virtualenv ply setuptools wheel tox codecov
         virtualenv ./venv
         source ./venv/bin/activate
         pip install -U pip
