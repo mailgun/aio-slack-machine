@@ -49,7 +49,7 @@ jobs:
           curl \
           git \
           openssh-client
-        pip install virtualenv ply setuptools==68.2.0 wheel tox codecov
+        pip install virtualenv ply setuptools==60.1.0 wheel tox codecov
         virtualenv ./venv
         source ./venv/bin/activate
         pip install -U pip
