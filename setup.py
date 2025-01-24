@@ -82,7 +82,7 @@ setup(
         "pytest-html==1.21.1",
         "pytest-metadata==1.8.0",
         "pytest-mock==1.11.2",
-        "pytest==5.4.3",
+        "pytest==6.1.0",
         "coverage",
     ],
     install_requires=dependencies,
