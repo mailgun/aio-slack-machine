@@ -103,7 +103,7 @@ jobs:
         pytest --cov=${{ env.COVER_PACKAGE }} --cov-report=term-missing --cov-report=html:./reports/coverage/ --junitxml=./reports/junit.xml ./tests
 
     - name: Upload test reports
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: test-reports-${{ matrix.python }}
         path: ./reports
