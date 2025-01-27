@@ -50,6 +50,8 @@ jobs:
           git \
           openssh-client
         pip install virtualenv ply setuptools wheel tox codecov
+        pip uninstall -y packaging ordered-set more_itertools jaraco.text importlib_resources importlib_metadata tomli wheel platformdirs
+        pip install packaging ordered-set more_itertools jaraco.text importlib_resources importlib_metadata tomli wheel platformdirs
         virtualenv ./venv
         source ./venv/bin/activate
         pip install -U pip
@@ -65,11 +67,13 @@ jobs:
     - name: Build dists
       run: |
         source ./venv/bin/activate
+        pip uninstall -y packaging ordered-set more_itertools jaraco.text importlib_resources importlib_metadata tomli wheel platformdirs
+        pip install packaging ordered-set more_itertools jaraco.text importlib_resources importlib_metadata tomli wheel platformdirs
         mkdir -p ./dist
         python ./setup.py build bdist_wheel -d ./dist
 
     - name: Upload dists
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: dist-${{ matrix.python }}
         path: dist
@@ -103,7 +107,7 @@ jobs:
         pytest --cov=${{ env.COVER_PACKAGE }} --cov-report=term-missing --cov-report=html:./reports/coverage/ --junitxml=./reports/junit.xml ./tests
 
     - name: Upload test reports
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: test-reports-${{ matrix.python }}
         path: ./reports
