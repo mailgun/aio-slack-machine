@@ -21,13 +21,13 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Venv cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: venv-cache
       with:
         path: "venv"
         key: venv-${{ matrix.python }}-${{ env.CACHE_VER }}-${{ hashFiles('requirements.txt', 'setup.py') }}
     - name: Wheel cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: wheel-cache
       with:
         path: "wheel"
@@ -94,7 +94,7 @@ jobs:
         python-version: ${{ matrix.python }}
 
     - name: Venv cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: venv-cache
       with:
         path: "venv"
