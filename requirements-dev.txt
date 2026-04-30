@@ -16,4 +16,3 @@ pytest==6.2.5
 sphinx-autobuild==0.7.1
 tox==3.13.1
 twine==2.0.0
-setuptools==81.0.0
